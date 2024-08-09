@@ -1,0 +1,1089 @@
+---
+title: "sample_english"
+author: "grit"
+date: "2024-06-23"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(ggplot2)
+library(tidyverse)
+library(patchwork)
+library(cowplot)
+library(metafor)
+library(meta)
+```
+
+```{r}
+sex_report <- read_csv("sex_report.csv")
+sex_report$report_n <- round(sex_report$report_n)
+
+sex_report <- sex_report %>%
+  mutate(weight = paste0(sprintf("%.1f",report_n/study_n*100,1), "%"))
+sum(sex_report$report_n)
+sum(sex_report$study_n)
+sex_report
+```
+
+
+```{r}
+pdf("forest_sex_english.pdf", width = 10, height = 12)
+
+dat <- sex_report
+dat <- escalc(measure="PFT", xi=report_n, ni=study_n,               data=dat)
+tmp <- t(sapply(split(
+  dat, dat$paper), function(x) binom.test(
+    x$report_n, x$study_n)$conf.int))
+
+dat$ci.lb <- tmp[,1]
+dat$ci.ub <- tmp[,2]
+transf.ipft(dat$yi, dat$ni)
+
+res <- rma(yi, vi,method="REML",  data=dat)
+pred <- predict(
+  res, transf=transf.ipft.hm,targs=list(
+    xi=dat$report_n,ni = dat$study_n))
+
+forest(res, ylim=c(-2,31), xlim=c(-.6,1.7),
+       slab =dat$paper,ilab = cbind(dat$report_n, dat$study_n,dat$weight),
+      ilab.xpos = c(0, 0.2,1.20),transf = transf.ipft.hm, targs=list(xi=dat$report_n,ni = dat$study_n), alim=c(0.4,1),
+      
+      refline=predict(res, transf = transf.ipft.hm, targs=list(xi=dat$report_n,ni = dat$study_n))$pred, digits=3)
+
+text(c(0, 0.2,1.2), 29.7, c("reported", "total", "weight"), cex=1, font=2)
+text(c(0, 0.2), -1, c("7513", "8987"), cex=1, font=2)
+text(0, -2.2, expression(paste(
+  "Heterogeneity: tau"^2,"=0.04;", chi^2, "=1359.75, df=27(p<0.001)； I"^2," = 97.7%")),cex=1)
+text(-0.6, 29.7, "Study", pos=4, cex=1, font=2)
+text(1.7, 29.7, "F-T,[95% CI]", pos=2, cex=1, font=2)
+text(-0.6, 31.2, "Proportion of reporting sex/gender", pos=4, cex=1.3, font=2)
+
+summary(res)
+
+#关闭设备驱动器，完成图像文件的保存
+dev.off()
+```
+
+
+```{r}
+# 假设这是你想添加的数据
+new_data <- data.frame(paper="(Meta)Average proportion",sex_report=88.0, report_n=NA, study_n=NA,weight =NA)
+
+# 使用rbind()将新行添加到数据框的末尾
+sex_report <- rbind(sex_report, new_data)
+sex_report
+sex_report$paper <- factor(sex_report$paper, levels = unique(sex_report$paper))
+```
+
+```{r}
+
+sex_r <- ggplot(sex_report, aes(x = paper, y = sex_report)) +
+  geom_bar(fill = "grey", colour = "black",stat = "identity", width = 0.5) +    # 设置柱状图的填充颜色
+  geom_segment(aes(x = 0.5, y = 100, xend = 29.5, yend = 100), color = "red",size = 2, linetype = "dashed") +  
+  labs(y = "Proportion of reporting") +          
+  ggtitle("Proportion of reporting sex/gender") +
+  scale_y_continuous(expand=c(0,0))+  # 让 Y 轴与 0 对齐
+  theme_bw() +
+  theme(panel.grid = element_blank(),
+        panel.border = element_blank(),
+        axis.line = element_line(size = 1.2),
+        axis.ticks = element_line(size = 1.2),
+        axis.ticks.length = unit(0.3, "cm"), 
+        axis.text.x = element_text(angle = 60, hjust = 1),
+       axis.text = element_text(size = 17),
+        axis.title = element_text(size = 17),
+       axis.title.x = element_blank(),  # 去掉横坐标的标题
+        plot.title = element_text(size = 20) )+
+coord_cartesian(clip = 'off',ylim = c(0,100),xlim = c(1,29))+ #在非图形区域绘图,且要定好y轴范围
+  theme(plot.margin = margin(0.5,0.5,1.5,0.5,'cm'))+ #自定义图片上左下右的边框宽度
+  annotate('text',x=-1.6,y=115,label='a',size=8,family='serif',color='black')
+
+
+# 创建一个新的数据框，它只包含你想要加误差棒的那个柱体的数据
+df_errorbar <- sex_report[sex_report$paper=="(Meta)Average proportion", ]
+
+sex_r <- sex_r + geom_errorbar(data=df_errorbar, aes(ymin=82.7, ymax=92.4), width=0.4, position=position_dodge(0.9), colour="black")
+sex_r
+```
+
+#年龄报告
+```{r}
+age_report <- read_csv("age_report.csv")
+age_report$report_n <- round(age_report$report_n)
+
+age_report <- age_report %>%
+  mutate(weight = paste0(sprintf("%.1f",report_n/study_n*100,1), "%"))
+sum(age_report$report_n)
+sum(age_report$study_n)
+
+age_report
+```
+
+```{r}
+pdf("forest_age_english.pdf", width = 10, height = 8)
+
+dat <- age_report
+dat <- escalc(measure="PFT", xi=report_n, ni=study_n,               data=dat)
+tmp <- t(sapply(split(
+  dat, dat$paper), function(x) binom.test(
+    x$report_n, x$study_n)$conf.int))
+
+dat$ci.lb <- tmp[,1]
+dat$ci.ub <- tmp[,2]
+transf.ipft(dat$yi, dat$ni)
+
+res <- rma(yi, vi,method="REML",  data=dat)
+pred <- predict(
+  res, transf=transf.ipft.hm,targs=list(
+    xi=dat$report_n,ni = dat$study_n))
+
+forest(res, ylim=c(-2,22), xlim=c(-.6,1.7),
+       slab =dat$paper,ilab = cbind(dat$report_n, dat$study_n,dat$weight),
+      ilab.xpos = c(0, 0.2,1.20),transf = transf.ipft.hm, targs=list(xi=dat$report_n,ni = dat$study_n), alim=c(0.30,1),
+      
+      refline=predict(res, transf = transf.ipft.hm, targs=list(xi=dat$report_n,ni = dat$study_n))$pred, digits=3)
+
+text(c(0, 0.2,1.2), 20.7, c("reported", "total", "weight"), cex=1, font=2)
+text(c(0, 0.2), -1, c("4650", "5261"), cex=1, font=2)
+text(0, -2.2, expression(paste(
+  "Heterogeneity: tau"^2,"=0.05;", chi^2, "=804.31, df=18(p<0.001)； I"^2," = 98.2%")),cex=1)
+text(-0.6, 20.7, "Study", pos=4, cex=1, font=2)
+text(1.7, 20.7, "F-T,[95% CI]", pos=2, cex=1, font=2)
+text(-0.6, 21.8, "Proportion of reporting age", family="GB1", pos=4, cex=1.3, font=2)
+
+summary(res)
+
+#关闭设备驱动器，完成图像文件的保存
+dev.off()
+```
+
+```{r}
+# 假设这是你想添加的数据
+new_data <- data.frame(paper="(Meta)Average proportion",age_report=89.6, report_n=NA, study_n=NA,weight =NA)
+
+# 使用rbind()将新行添加到数据框的末尾
+age_report <- rbind(age_report, new_data)
+age_report
+age_report$paper <- factor(age_report$paper, levels = unique(age_report$paper))
+```
+
+```{r}
+age_r <- ggplot(age_report, aes(x = paper, y = age_report)) +
+  geom_bar(fill = "grey", colour = "black", stat = "identity", width = 0.5) +    # 设置柱状图的填充颜色
+  geom_segment(aes(x = 0.5, y = 100, xend = 20.5, yend = 100), color = "red", size = 2,linetype = "dashed") +  
+  labs( y = "Proportion of reporting") +          
+  ggtitle("Proportion of reporting age") +
+  scale_y_continuous(expand=c(0,0))+  # 让 Y 轴与 0 对齐
+  theme_bw() +
+  theme(panel.grid = element_blank(),
+        panel.border = element_blank(),
+        axis.line = element_line(size = 1.2),
+        axis.ticks = element_line(size = 1.2),
+        axis.ticks.length = unit(0.3, "cm"), 
+        axis.text.x = element_text(angle = 60, hjust = 1),
+       axis.text = element_text(size = 17),
+        axis.title = element_text(size = 17),
+       axis.title.x = element_blank(),  # 去掉横坐标的标题
+        plot.title = element_text(size = 20) )+
+coord_cartesian(clip = 'off',ylim = c(0,100),xlim = c(1,20))+ #在非图形区域绘图,且要定好y轴范围
+  theme(plot.margin = margin(0.5,0.5,1.5,0.5,'cm'))+ #自定义图片上左下右的边框宽度
+  annotate('text',x=-1.7,y=115,label='b',size=8,family='serif',color='black')
+
+df_errorbar <- age_report[age_report$paper=="(Meta)Average proportion", ]
+
+age_r <- age_r + geom_errorbar(data=df_errorbar, aes(ymin=82.0, ymax=95.4), width=0.4, position=position_dodge(0.9), colour="black")
+age_r
+```
+
+#003国别报告
+```{r}
+country_report <- read_csv("country_report.csv")
+country_report$report_n <- round(country_report$report_n)
+
+country_report <- country_report %>%
+  mutate(weight = paste0(sprintf("%.1f",report_n/study_n*100,1), "%"))
+sum(country_report$report_n)
+sum(country_report$study_n)
+
+country_report
+```
+
+```{r}
+pdf("forest_country_english.pdf", width = 10, height = 7.2)
+
+dat <- country_report
+dat <- escalc(measure="PFT", xi=report_n, ni=study_n,               data=dat)
+tmp <- t(sapply(split(
+  dat, dat$paper), function(x) binom.test(
+    x$report_n, x$study_n)$conf.int))
+
+dat$ci.lb <- tmp[,1]
+dat$ci.ub <- tmp[,2]
+transf.ipft(dat$yi, dat$ni)
+
+res <- rma(yi, vi,method="REML",  data=dat)
+pred <- predict(
+  res, transf=transf.ipft.hm,targs=list(
+    xi=dat$report_n,ni = dat$study_n))
+
+forest(res, ylim=c(-2,19.2), xlim=c(-.6,1.7),
+       slab =dat$paper,ilab = cbind(dat$report_n, dat$study_n,dat$weight),
+      ilab.xpos = c(0, 0.2,1.20),transf = transf.ipft.hm, targs=list(xi=dat$report_n,ni = dat$study_n), alim=c(0.30,1),
+      
+      refline=predict(res, transf = transf.ipft.hm, targs=list(xi=dat$report_n,ni = dat$study_n))$pred, digits=3)
+
+text(c(0, 0.2,1.2), 17.9, c("reported", "total", "weight"), cex=1, font=2)
+text(c(0, 0.2), -1, c("8391", "10060"), cex=1, font=2)
+text(0.03, -2.2, expression(paste(
+  "Heterogeneity: tau"^2,"=0.06;", chi^2, "=3658.15.31, df=15(p<0.001)； I"^2," = 99.2%")),cex=1)
+text(-0.6, 17.9, "Study", pos=4, cex=1, font=2)
+text(1.7, 17.9, "F-T,[95% CI]", pos=2, cex=1, font=2)
+text(-0.6, 19.0, "Proportion of reporting country", pos=4, cex=1.3, font=2)
+
+summary(res)
+
+#关闭设备驱动器，完成图像文件的保存
+dev.off()
+```
+
+```{r}
+# 假设这是你想添加的数据
+new_data <- data.frame(paper="(Meta)Average proportion",country_report=94.7, report_n=NA, study_n=NA,weight =NA)
+
+# 使用rbind()将新行添加到数据框的末尾
+country_report <- rbind(country_report, new_data)
+country_report
+country_report$paper <- factor(country_report$paper, levels = unique(country_report$paper))
+```
+
+```{r}
+country_r <- ggplot(country_report, aes(x = paper, y = country_report)) +
+  geom_bar(fill = "grey", colour = "black", stat = "identity", width = 0.5) +    # 设置柱状图的填充颜色
+  geom_segment(aes(x = 0.5, y = 100, xend = 17.5, yend = 100), color = "red",size = 2, linetype = "dashed") +  
+  labs( y = "Proportion of reporting") +          
+  ggtitle("Proportion of reporting country") +
+  scale_y_continuous(expand=c(0,0))+  # 让 Y 轴与 0 对齐
+  theme_bw() +
+  theme(panel.grid = element_blank(),
+        panel.border = element_blank(),
+        axis.line = element_line(size = 1.2),
+        axis.ticks = element_line(size = 1.2),
+        axis.ticks.length = unit(0.3, "cm"), 
+        axis.text.x = element_text(angle = 60, hjust = 1),
+       axis.text = element_text(size = 17),
+        axis.title = element_text(size = 17),
+       axis.title.x = element_blank(),  # 去掉横坐标的标题
+        plot.title = element_text(size = 20) )+
+coord_cartesian(clip = 'off',ylim = c(0,100),xlim = c(1,17))+ #在非图形区域绘图,且要定好y轴范围
+  theme(plot.margin = margin(0.5,0.5,1.5,0.5,'cm'))+ #自定义图片上左下右的边框宽度
+  annotate('text',x=-0.8,y=115,label='c',size=8,family='serif',color='black')
+
+df_errorbar <- country_report[country_report$paper=="(Meta)Average proportion", ]
+
+country_r <- country_r + geom_errorbar(data=df_errorbar, aes(ymin=88.2, ymax=98.8), width=0.4, position=position_dodge(0.9), colour="black")
+country_r
+```
+
+#004种族报告
+```{r}
+race_report <- read_csv("race_report.csv")
+race_report$report_n <- round(race_report$report_n)
+
+race_report <- race_report %>%
+  mutate(weight = paste0(sprintf("%.1f",report_n/study_n*100,1), "%"))
+sum(race_report$report_n)
+sum(race_report$study_n)
+
+race_report
+```
+
+```{r}
+pdf("forest_race_english.pdf", width = 12, height = 12.5)
+
+dat <- race_report
+dat <- escalc(measure="PFT", xi=report_n, ni=study_n,               data=dat)
+tmp <- t(sapply(split(
+  dat, dat$paper), function(x) binom.test(
+    x$report_n, x$study_n)$conf.int))
+
+dat$ci.lb <- tmp[,1]
+dat$ci.ub <- tmp[,2]
+transf.ipft(dat$yi, dat$ni)
+
+res <- rma(yi, vi,method="REML",  data=dat)
+pred <- predict(
+  res, transf=transf.ipft.hm,targs=list(
+    xi=dat$report_n,ni = dat$study_n))
+
+forest(res, ylim=c(-2,36), xlim=c(-1.2,1.9),
+       slab =dat$paper,ilab = cbind(dat$report_n, dat$study_n,dat$weight),
+      ilab.xpos = c(-0.5, -0.3,1.3),transf = transf.ipft.hm, targs=list(xi=dat$report_n,ni = dat$study_n), alim=c(0,1),
+      
+      refline=predict(res, transf = transf.ipft.hm, targs=list(xi=dat$report_n,ni = dat$study_n))$pred, digits=3)
+
+text(c(-0.5, -0.3,1.3), 34.9, c("reported", "total", "weight"), cex=1, font=2)
+text(c(0, 0.2), -1, c("6686", "14413"), cex=1, font=2)
+text(-0.52, -2.2, expression(paste(
+  "Heterogeneity: tau"^2,"=0.08;", chi^2, "=3543.51, df=32(p<0.001)； I"^2," = 99.3%")),cex=1)
+text(-1.2, 34.9, "Study", pos=4, cex=1, font=2)
+text(1.9, 34.9, "F-T,[95% CI]", pos=2, cex=1, font=2)
+text(-1.2, 36.0, "Proportion of reporting race/ethnicity", pos=4, cex=1.3, font=2)
+
+summary(res)
+
+#关闭设备驱动器，完成图像文件的保存
+dev.off()
+```
+
+```{r}
+new_data <- data.frame(paper="(Meta)Average proportion",race_report=53.0, report_n=NA, study_n=NA,weight =NA)
+
+race_report <- rbind(race_report, new_data)
+race_report
+race_report$paper <- factor(race_report$paper, levels = unique(race_report$paper))
+```
+
+```{r}
+race_r <- ggplot(race_report, aes(x = paper, y = race_report)) +
+  geom_bar(fill = "grey", colour = "black", stat = "identity", width = 0.5) +    # 设置柱状图的填充颜色
+  geom_segment(aes(x = 0.5, y = 100, xend = 34.5, yend = 100), color = "red", size = 2,linetype = "dashed") +  
+  labs( y = "Proportion of reporting") +          
+  ggtitle("Proportion of reporting race/ethnicity") +
+  scale_y_continuous(expand=c(0,0))+  # 让 Y 轴与 0 对齐
+  theme_bw() +
+  theme(panel.grid = element_blank(),
+        panel.border = element_blank(),
+        axis.line = element_line(size = 1.2),
+        axis.ticks = element_line(size = 1.2),
+        axis.ticks.length = unit(0.3, "cm"), 
+        axis.text.x = element_text(angle = 60, hjust = 1),
+       axis.text = element_text(size = 17),
+        axis.title = element_text(size = 17),
+       axis.title.x = element_blank(),  # 去掉横坐标的标题
+        plot.title = element_text(size = 20) )+
+coord_cartesian(clip = 'off',ylim = c(0,100),xlim = c(1,34))+ #在非图形区域绘图,且要定好y轴范围
+  theme(plot.margin = margin(0.5,0.5,1.5,0.5,'cm'))+ #自定义图片上左下右的边框宽度
+  annotate('text',x=-2.0,y=115,label='e',size=8,family='serif',color='black')
+
+df_errorbar <- race_report[race_report$paper=="(Meta)Average proportion", ]
+
+race_r <- race_r + geom_errorbar(data=df_errorbar, aes(ymin=42.7, ymax=63.1), width=0.4, position=position_dodge(0.9), colour="black")
+race_r
+```
+
+```{r}
+edu_report <- read_csv("edu_report.csv")
+edu_report$report_n <- round(edu_report$report_n)
+
+edu_report <- edu_report %>%
+  mutate(weight = paste0(sprintf("%.1f",report_n/study_n*100,1), "%"))
+sum(edu_report$report_n)
+sum(edu_report$study_n)
+
+edu_report
+```
+
+```{r}
+pdf("forest_edu_english.pdf", width = 12, height = 5)
+
+dat <- edu_report
+dat <- escalc(measure="PFT", xi=report_n, ni=study_n,               data=dat)
+tmp <- t(sapply(split(
+  dat, dat$paper), function(x) binom.test(
+    x$report_n, x$study_n)$conf.int))
+
+dat$ci.lb <- tmp[,1]
+dat$ci.ub <- tmp[,2]
+transf.ipft(dat$yi, dat$ni)
+
+res <- rma(yi, vi,method="REML",  data=dat)
+pred <- predict(
+  res, transf=transf.ipft.hm,targs=list(
+    xi=dat$report_n,ni = dat$study_n))
+
+forest(res, ylim=c(-2,13.2), xlim=c(-1.2,1.9),
+       slab =dat$paper,ilab = cbind(dat$report_n, dat$study_n,dat$weight),
+      ilab.xpos = c(-0.5, -0.3,1.3),transf = transf.ipft.hm, targs=list(xi=dat$report_n,ni = dat$study_n), alim=c(0,1),
+      
+      refline=predict(res, transf = transf.ipft.hm, targs=list(xi=dat$report_n,ni = dat$study_n))$pred, digits=3)
+
+text(c(-0.5, -0.3,1.3), 11.9, c("reported", "total", "weight"), cex=1, font=2)
+text(c(-0.5, -0.3), -1, c("2787", "6677"), cex=1, font=2)
+text(-0.54, -2.2, expression(paste(
+  "Heterogeneity: tau"^2,"=0.08;", chi^2, "=1808.36, df=9(p<0.001)； I"^2," = 99.5%")),cex=1)
+text(-1.2, 11.9, "Study", pos=4, cex=1, font=2)
+text(1.9, 11.9, "F-T,[95% CI]", pos=2, cex=1, font=2)
+text(-1.2, 13.0, "Proportion of reporting education level", family="GB1", pos=4, cex=1.3, font=2)
+
+summary(res)
+
+#关闭设备驱动器，完成图像文件的保存
+dev.off()
+```
+
+```{r}
+new_data <- data.frame(paper="(Meta)Average proportion",edu_report=58.6, report_n=NA, study_n=NA,weight =NA)
+
+edu_report <- rbind(edu_report, new_data)
+edu_report
+edu_report$paper <- factor(edu_report$paper, levels = unique(edu_report$paper))
+```
+
+```{r}
+edu_r <- ggplot(edu_report, aes(x = paper, y = edu_report)) +
+  geom_bar(fill = "grey", colour = "black", stat = "identity", width = 0.5) +    # 设置柱状图的填充颜色
+  geom_segment(aes(x = 0.5, y = 100, xend = 11.5, yend = 100), color = "red",size = 2, linetype = "dashed") +  
+  labs( y = "Proportion of reporting") +          
+  ggtitle("Proportion of reporting education level") +
+  scale_y_continuous(expand=c(0,0))+  # 让 Y 轴与 0 对齐
+  theme_bw() +
+  theme(panel.grid = element_blank(),
+        panel.border = element_blank(),
+        axis.line = element_line(size = 1.2),
+        axis.ticks = element_line(size = 1.2),
+        axis.ticks.length = unit(0.3, "cm"), 
+        axis.text.x = element_text(angle = 60, hjust = 1),
+       axis.text = element_text(size = 17),
+        axis.title = element_text(size = 17),
+       axis.title.x = element_blank(),  # 去掉横坐标的标题
+        plot.title = element_text(size = 20) )+
+
+  coord_cartesian(clip = 'off',ylim = c(0,100),xlim = c(1,11))+ #在非图形区域绘图,且要定好y轴范围
+  theme(plot.margin = margin(0.5,0.5,1.5,0.5,'cm'))+ #自定义图片上左下右的边框宽度
+  annotate('text',x=-0.7,y=115,label='d',size=8,family='serif',color='black')
+
+df_errorbar <- edu_report[edu_report$paper=="(Meta)Average proportion", ]
+
+edu_r <- edu_r + geom_errorbar(data=df_errorbar, aes(ymin=41.1, ymax=75.0), width=0.4, position=position_dodge(0.9), colour="black")
+edu_r
+```
+
+```{r}
+ses_report <- read_csv("ses_report.csv")
+ses_report$report_n <- round(ses_report$report_n)
+
+ses_report <- ses_report %>%
+  mutate(weight = paste0(sprintf("%.1f",report_n/study_n*100,1), "%"))
+sum(ses_report$report_n)
+sum(ses_report$study_n)
+
+ses_report
+```
+
+```{r}
+pdf("forest_ses_english.pdf", width = 12, height = 9)
+
+dat <- ses_report
+dat <- escalc(measure="PFT", xi=report_n, ni=study_n,               data=dat)
+tmp <- t(sapply(split(
+  dat, dat$paper), function(x) binom.test(
+    x$report_n, x$study_n)$conf.int))
+
+dat$ci.lb <- tmp[,1]
+dat$ci.ub <- tmp[,2]
+transf.ipft(dat$yi, dat$ni)
+
+res <- rma(yi, vi,method="REML",  data=dat)
+pred <- predict(
+  res, transf=transf.ipft.hm,targs=list(
+    xi=dat$report_n,ni = dat$study_n))
+
+forest(res, ylim=c(-2,19.2), xlim=c(-1.2,1.9),
+       slab =dat$paper,ilab = cbind(dat$report_n, dat$study_n,dat$weight),
+      ilab.xpos = c(-0.5, -0.3,1.3),transf = transf.ipft.hm, targs=list(xi=dat$report_n,ni = dat$study_n), alim=c(0,1),
+      
+      refline=predict(res, transf = transf.ipft.hm, targs=list(xi=dat$report_n,ni = dat$study_n))$pred, digits=3)
+
+text(c(-0.5, -0.3,1.3), 17.9, c("reported", "total", "weight"), cex=1, font=2)
+text(c(-0.5, -0.3), -1, c("2263", "8888"), cex=1, font=2)
+text(-0.53, -1.8, expression(paste(
+  "Heterogeneity: tau"^2,"=0.08;", chi^2, "=1723.12, df=15(p<0.001)； I"^2," = 99.4%")),cex=1)
+text(-1.2, 17.9, "Study", pos=4, cex=1, font=2)
+text(1.9, 17.9, "F-T,[95% CI]", pos=2, cex=1, font=2)
+text(-1.2, 19.0, "Proportion of reporting SES", family="GB1", pos=4, cex=1.3, font=2)
+
+summary(res)
+
+#关闭设备驱动器，完成图像文件的保存
+dev.off()
+```
+
+```{r}
+new_data <- data.frame(paper="(Meta)Average proportion",ses_report=30.2, report_n=NA, study_n=NA,weight =NA)
+
+ses_report <- rbind(ses_report, new_data)
+ses_report
+ses_report$paper <- factor(ses_report$paper, levels = unique(ses_report$paper))
+```
+
+```{r}
+ses_r <- ggplot(ses_report, aes(x = paper, y = ses_report)) +
+  geom_bar(fill = "grey", colour = "black", stat = "identity", width = 0.5) +    # 设置柱状图的填充颜色
+  geom_segment(aes(x = 0.5, y = 100, xend = 17.5, yend = 100), color = "red", size = 2, linetype = "dashed") +  
+  labs(y = "Proportion of reporting") +          
+  ggtitle("Proportion of reporting SES") +
+  scale_y_continuous(expand=c(0, 0))+  # 让 Y 轴与 0 对齐
+  theme_bw() +
+  theme(panel.grid = element_blank(),
+        panel.border = element_blank(),
+        axis.line = element_line(size = 1.2),
+        axis.ticks = element_line(size = 1.2),
+        axis.ticks.length = unit(0.3, "cm"), 
+        axis.text.x = element_text(angle = 60, hjust = 1),
+        axis.text = element_text(size = 17),
+        axis.title = element_text(size = 17),
+        axis.title.x = element_blank(),  # 去掉横坐标的标题
+        plot.title = element_text(size = 20) )+
+coord_cartesian(clip = 'off',ylim = c(0,100),xlim = c(1,17))+ #在非图形区域绘图,且要定好y轴范围
+  theme(plot.margin = margin(0.5,0.5,1.5,0.5,'cm'))+ #自定义图片上左下右的边框宽度
+  annotate('text',x=-1.45,y=115,label='f',size=8,family='serif',color='black')
+
+df_errorbar <- ses_report[ses_report$paper=="(Meta)Average proportion", ]
+
+ses_r <- ses_r + geom_errorbar(data=df_errorbar, aes(ymin=17.0, ymax=47.7), width=0.4, position=position_dodge(0.9), colour="black")
+ses_r
+```
+
+```{r}  
+design <- c(
+  area(1, 1, 1, 3),
+  area(1, 4, 1, 5),
+  area(2, 1, 2, 3),
+  area(2, 4, 2, 5),
+  area(3, 1, 3, 3),
+  area(3, 4, 3, 5))
+combined_plot <- sex_r + age_r + country_r +  edu_r + race_r + ses_r +   
+  plot_layout(ncol = 2, design = design) 
+#+ # 设置两列布局
+#plot_annotation(tag_levels = list(c('A', 'B', 'C', 'D', 'E', 'F')))
+
+combined_plot
+# Save the plot as a pdf image
+ggsave(filename = "report_english.pdf", plot = combined_plot,  width = 20, height = 20)
+```
+
+```{r}
+sex_time <- read_csv("sex_report_time.csv")
+sex_time
+```
+
+```{r}
+sex_t <- ggplot(sex_time, aes(x = year)) +
+   geom_line(aes(y = Wilson,  fill = "Wilson", color = "Wilson"), shape = 16,size = 2) +  # 第一条折线
+  geom_line(aes(y = McGorray, fill = "McGorray", color = "McGorray"), shape = 16,size = 2) +   # 第二条折线
+  geom_point(aes(y = Wilson,  fill = "Wilson", color = "Wilson"), shape = 16,size = 4) +  # 第一条折线
+  geom_point(aes(y = McGorray, fill = "McGorray", color = "McGorray"), shape = 16,size = 4) +   # 第二条折线
+  geom_segment(aes(x = 1997, y = 91, xend = 2007, yend = 93), color = "#00BFC4",size = 2) + 
+  geom_segment(aes(x = 2007, y = 93, xend = 2017, yend = 97), color = "#00BFC4",size = 2) + 
+  
+  geom_segment(aes(x = 1998, y = 70.5, xend = 2018, yend = 74.6), color = "#F8766D",size = 2) + 
+    scale_fill_manual(name=" ", values = c("#F8766D","#00BFC4"),
+                    labels = c("McGorray et al., 2023","Wilson, 2024")) +
+  scale_color_manual(name=" ", values = c("#F8766D","#00BFC4"),
+                     labels = c("McGorray et al., 2023","Wilson, 2024")) +
+  guides(fill=guide_legend(nrow=2, byrow=TRUE))+ 
+   labs(x = "Year", y = "Proportion of reporting") +       # 添加轴标签
+  ggtitle("Proportion of reporting\nsex/gender by year") + 
+
+  theme_bw() +
+  theme(panel.grid = element_blank(),
+        panel.border = element_blank(),
+        legend.position = "bottom",
+        axis.line = element_line(), 
+        axis.ticks = element_line(size = 0.8),
+        axis.text = element_text(size = 19),
+        axis.title = element_text(size = 19),
+        axis.title.x = element_blank(),  # 去掉横坐标的标题
+        plot.title = element_text(size = 20),
+        legend.text = element_text(size = 18))+
+  coord_cartesian(clip = 'off',ylim = c(0,100),xlim = c(1998,2022))+ #在非图形区域绘图,且要定好y轴范围
+  theme(plot.margin = margin(0.5,0.5,1.5,0.5,'cm'))+ #自定义图片上左下右的边框宽度
+  annotate('text',x=1994,y=135,label='a',size=8,family='serif',color='black')
+
+sex_t
+```
+
+```{r}
+age_time <- read_csv("age_report_time.csv")
+age_time
+```
+
+```{r}
+age_t <- ggplot(age_time, aes(x = year)) +
+  geom_line(aes(y = Wilson, fill = "Wilson", color = "Wilson"), shape = 16,size = 2) +  # 第一条折线
+  geom_point(aes(y = Wilson, fill = "Wilson", color = "Wilson"), shape = 16,size = 4) +  # 第一条折线
+  
+  geom_segment(aes(x = 1997, y = 90, xend = 2007, yend = 96), color = "#00BFC4",size = 2) + 
+  geom_segment(aes(x = 2007, y = 96, xend = 2017, yend = 98), color = "#00BFC4",size = 2) + 
+            
+  scale_fill_manual(name=" ", values = c("#00BFC4"),
+                    labels = c("Wilson, 2024")) +
+  scale_color_manual(name=" ", values = c("#00BFC4"),
+                     labels = c("Wilson, 2024")) +
+  labs(x = "Year", y = "Proportion of reporting") +       # 添加轴标签
+  ggtitle("Proportion of reporting age\nby year") + 
+  theme_bw() +
+  theme(panel.grid = element_blank(),
+        panel.border = element_blank(),
+        legend.position = "bottom",
+        axis.line = element_line(), 
+        axis.ticks = element_line(size = 0.8),
+        axis.text = element_text(size = 19),
+        axis.title = element_text(size = 19),
+        axis.title.x = element_blank(),  # 去掉横坐标的标题
+        plot.title = element_text(size = 20),
+        legend.text = element_text(size = 18))+
+  coord_cartesian(clip = 'off',ylim = c(0,100),xlim = c(1998,2022))+ #在非图形区域绘图,且要定好y轴范围
+  theme(plot.margin = margin(0.5,0.5,1.5,0.5,'cm'))+ #自定义图片上左下右的边框宽度
+  annotate('text',x=1994,y=135,label='b',size=8,family='serif',color='black')
+
+age_t
+```
+
+```{r}
+country_time <- read_csv("country_report_time.csv")
+country_time
+```
+
+```{r}
+country_t <- ggplot(country_time, aes(x = year)) +
+  geom_line(aes(y = Tam, fill = "Tam", color = "Tam"), shape = 16,size = 2) +  # 第一条折线
+  geom_line(aes(y = McGorray, fill = "McGorray", color = "McGorray"), shape = 16,size = 2) +   # 第二条折线
+  geom_point(aes(y = Tam, fill = "Tam", color = "Tam"), shape = 16,size = 4) +  # 第一条折线
+  geom_point(aes(y = McGorray, fill = "McGorray", color = "McGorray"), shape = 16,size = 4) +   # 第二条折线
+  
+  geom_segment(aes(x = 2014, y = 85.4, xend = 2017, yend = 81.5), color = "#00BA38",size = 2) + 
+  geom_segment(aes(x = 1998, y = 59.4, xend = 2018, yend = 56.5), color = "#F8766D",size = 2) + 
+  
+  
+  scale_fill_manual(name=" ", values = c("#F8766D","#00BA38"),
+                    labels = c("McGorray et al., 2023","Tam & Milfont, 2020")) +
+  scale_color_manual(name=" ", values = c("#F8766D","#00BA38"),
+                    labels = c("McGorray et al., 2023","Tam & Milfont, 2020")) +          
+   guides(fill=guide_legend(nrow=2, byrow=TRUE))+ 
+  
+  labs(x = "Year", y = "Proportion of reporting") +       # 添加轴标签
+  ggtitle("Proportion of reporting country\nby year") + 
+  theme_bw() +
+  theme(panel.grid = element_blank(),
+        panel.border = element_blank(),
+        legend.position = "bottom",
+        axis.line = element_line(), 
+        axis.ticks = element_line(size = 0.8),
+        axis.text = element_text(size = 19),
+        axis.title = element_text(size = 19),
+        axis.title.x = element_blank(),  # 去掉横坐标的标题
+        plot.title = element_text(size = 20),
+        legend.text = element_text(size = 18))+
+  coord_cartesian(clip = 'off',ylim = c(0,100),xlim = c(1998,2022))+ #在非图形区域绘图,且要定好y轴范围
+  theme(plot.margin = margin(0.5,0.5,1.5,0.5,'cm'))+ #自定义图片上左下右的边框宽度
+  annotate('text',x=1994,y=135,label='c',size=8,family='serif',color='black')
+
+country_t
+```
+
+
+```{r}
+race_time <- read_csv("race_report_time.csv")
+race_time
+```
+
+```{r}
+race_t <- ggplot(race_time, aes(x = year)) +
+    geom_line(aes(y = Singh, fill = "Singh", color = "Singh"), shape = 16,size = 2) +
+  
+  geom_line(aes(y = McGorray, fill = "McGorray", color = "McGorray"), shape = 16,size = 2) +
+  geom_line(aes(y = Wilson,  fill = "Wilson", color = "Wilson"), shape = 16,size = 2) +
+  geom_point(aes(y = Singh, fill = "Singh", color = "Singh"), shape = 16,size = 4) +
+  geom_point(aes(y = McGorray, fill = "McGorray", color = "McGorray"), shape = 16,size = 4) +
+   geom_point(aes(y = Wilson,  fill = "Wilson", color = "Wilson"), shape = 16,size = 4) + 
+   
+   
+  
+  geom_segment(aes(x = 2011, y = 42.64706, xend = 2012, yend = 63.28125), color = "#619CFF",size = 2) + 
+  geom_segment(aes(x = 2012, y = 63.28125, xend = 2013, yend =  56.52174), color = "#619CFF",size = 2) + 
+   geom_segment(aes(x = 2013, y =  56.52174, xend = 2014, yend =  52.30769), color = "#619CFF",size = 2) + 
+   geom_segment(aes(x = 2014, y =  52.30769, xend = 2015, yend =  57.94393), color = "#619CFF",size = 2) + 
+  geom_segment(aes(x = 2015, y =  57.94393, xend = 2016, yend =  64.22764), color = "#619CFF",size = 2) + 
+  geom_segment(aes(x = 2016, y =  64.22764, xend = 2017, yend =  53.43511), color = "#619CFF",size = 2) + 
+  geom_segment(aes(x = 2017, y =  53.43511, xend = 2018, yend =  55.62500), color = "#619CFF",size = 2) + 
+  geom_segment(aes(x = 2018, y =  55.62500, xend = 2019, yend =  49.41860), color = "#619CFF",size = 2) + 
+  geom_segment(aes(x = 2019, y =  49.41860, xend = 2020, yend =  53.73134), color = "#619CFF",size = 2) + 
+  geom_segment(aes(x = 2020, y =  53.73134, xend = 2021, yend =  67.48466), color = "#619CFF",size = 2) + 
+   geom_segment(aes(x = 2021, y =  67.48466, xend = 2022, yend =  65.69343), color = "#619CFF",size = 2) + 
+  geom_segment(aes(x = 1997, y = 42, xend = 2007, yend = 61), color = "#00BFC4",size = 2) +
+  geom_segment(aes(x = 2007, y = 61, xend = 2017, yend = 64), color = "#00BFC4",size = 2) +
+  geom_segment(aes(x = 1998, y = 42, xend = 2018, yend = 59), color = "#F8766D",size = 2) + 
+  
+  
+  scale_fill_manual(name=" ", values = c("#F8766D","#619CFF","#00BFC4"),
+                     labels = c("McGorray et al., 2023","Singh et al. 2023","Wilson, 2024")) +
+  scale_color_manual(name=" ", values = c("#F8766D","#619CFF","#00BFC4"),
+                     labels = c("McGorray et al., 2023","Singh et al. 2023","Wilson, 2024")) + 
+  
+  guides(fill=guide_legend(nrow=3, byrow=TRUE))+ 
+  labs(x = "Year", y = "Proportion of reporting") +       # 添加轴标签
+  ggtitle("Proportion of reporting\nrace/ethnicity by year") + 
+  theme_bw() +
+  theme(panel.grid = element_blank(),
+        panel.border = element_blank(),
+        legend.position = "bottom",
+        axis.line = element_line(), 
+        axis.ticks = element_line(size = 0.8),
+        axis.text = element_text(size = 19),
+        axis.title = element_text(size = 19),
+        axis.title.x = element_blank(),  # 去掉横坐标的标题
+        plot.title = element_text(size = 20),
+        legend.text = element_text(size = 18))+
+  coord_cartesian(clip = 'off',ylim = c(0,100),xlim = c(1998,2022))+ #在非图形区域绘图,且要定好y轴范围
+  theme(plot.margin = margin(0.5,0.5,1.5,0.5,'cm'))+ #自定义图片上左下右的边框宽度
+  annotate('text',x=1994,y=135,label='e',size=8,family='serif',color='black')
+
+race_t
+```
+
+
+```{r}
+edu_time <- read_csv("edu_report_time.csv")
+edu_time
+```
+
+```{r}
+edu_t <- ggplot(edu_time, aes(x = year)) +
+  
+  geom_line(aes(y = Wilson,  fill = "Wilson", color = "Wilson"), shape = 16,size = 2) +
+  geom_point(aes(y = Wilson,  fill = "Wilson", color = "Wilson"), shape = 16,size = 4) +  # 第一条折线
+  
+  geom_segment(aes(x = 1997, y = 47, xend = 2007, yend = 51), color = "#00BFC4",size = 2) + 
+  geom_segment(aes(x = 2007, y = 51, xend = 2017, yend = 45), color = "#00BFC4",size = 2) + 
+            
+  scale_fill_manual(name=" ", values = c("#00BFC4"),
+                    labels = c("Wilson, 2024")) +
+  scale_color_manual(name=" ", values = c("#00BFC4"),
+                     labels = c("Wilson, 2024")) +
+  
+  
+  labs(x = "Year", y = "Proportion of reporting") +       # 添加轴标签
+  ggtitle("Proportion of reporting\neducation by year") + 
+  theme_bw() +
+  theme(panel.grid = element_blank(),
+        panel.border = element_blank(),
+        legend.position = "bottom",
+        axis.line = element_line(), 
+        axis.ticks = element_line(size = 0.8),
+        axis.text = element_text(size = 19),
+        axis.title = element_text(size = 19),
+        axis.title.x = element_blank(),  # 去掉横坐标的标题
+        plot.title = element_text(size = 20),
+        legend.text = element_text(size = 18))+
+  coord_cartesian(clip = 'off',ylim = c(0,100),xlim = c(1998,2022))+ #在非图形区域绘图,且要定好y轴范围
+  theme(plot.margin = margin(0.5,0.5,1.5,0.5,'cm'))+ #自定义图片上左下右的边框宽度
+  annotate('text',x=1994,y=135,label='d',size=8,family='serif',color='black')
+
+edu_t
+```
+
+```{r}
+ses_time <- read_csv("ses_report_time.csv")
+ses_time
+```
+
+```{r}
+ses_t <- ggplot(ses_time, aes(x = year)) +
+  geom_point(aes(y = Wilson,  fill = "Wilson", color = "Wilson"), shape = 16,size = 4) +  # 第一条折线
+  geom_point(aes(y = McGorray, fill = "McGorray", color = "McGorray"), shape = 16,size = 4) +   # 第二条折线
+  geom_line(aes(y = Wilson,  fill = "Wilson", color = "Wilson"), shape = 16,size = 2) +  # 第一条折线
+  geom_line(aes(y = McGorray, fill = "McGorray", color = "McGorray"), shape = 16,size = 2) +   # 第二条折线
+  
+  geom_segment(aes(x = 1997, y = 17, xend = 2007, yend = 23), color = "#00BFC4",size = 2) + 
+  geom_segment(aes(x = 2007, y = 23, xend = 2017, yend = 24), color = "#00BFC4",size = 2) + 
+  
+  geom_segment(aes(x = 1998, y = 24.7, xend = 2018, yend = 26), color = "#F8766D",size = 2) + 
+   scale_fill_manual(name=" ", values = c("#F8766D","#00BFC4"),
+                    labels = c("McGorray et al., 2023","Wilson, 2024")) +
+  scale_color_manual(name=" ", values = c("#F8766D","#00BFC4"),
+                    labels = c("McGorray et al., 2023","Wilson, 2024")) +         
+   guides(fill=guide_legend(nrow=2, byrow=TRUE))+ 
+  labs(x = "Year", y = "Proportion of reporting") +       # 添加轴标签
+ ggtitle("Proportion of reporting SES\nby year") + 
+  theme_bw() +
+  theme(panel.grid = element_blank(),
+        panel.border = element_blank(),
+        legend.position = "bottom",
+        axis.line = element_line(), 
+        axis.ticks = element_line(size = 0.8),
+        axis.text = element_text(size = 19),
+        axis.title = element_text(size = 19),
+        axis.title.x = element_blank(),  # 去掉横坐标的标题
+        plot.title = element_text(size = 20),
+        legend.text = element_text(size = 18))+
+  coord_cartesian(clip = 'off',ylim = c(0,100),xlim = c(1998,2022))+ #在非图形区域绘图,且要定好y轴范围
+  theme(plot.margin = margin(0.5,0.5,1.5,0.5,'cm'))+ #自定义图片上左下右的边框宽度
+  annotate('text',x=1994,y=135,label='f',size=8,family='serif',color='black')
+
+ses_t
+```
+
+
+```{r}  
+combined_plot <- sex_t + age_t + country_t +  edu_t +race_t +  ses_t +   
+  plot_layout(ncol = 2) 
+
+combined_plot
+# Save the plot as a pdf image
+ggsave(filename = "report_time_english.pdf", plot = combined_plot,  width = 10, height = 16)
+```
+
+
+```{r}
+sex_representation <- read_csv("sex_representation.csv")
+sex_representation
+```
+
+
+```{r}
+sex_rep <-ggplot(sex_representation, aes(x = reorder(paper, -female))) +
+  geom_bar(aes(y = total, fill = "1"), stat = "identity", position = "stack", width = 0.5) +  
+  geom_bar(aes(y = female, fill = "2"), stat = "identity", position = "stack", width = 0.5) +    # 第二条折线
+  geom_segment(aes(x = 0.5, y = 50, xend = 35.5, yend = 50), color = "red", size = 1, linetype = "dashed") +  
+  labs( y = "Proportion") +          
+  ggtitle("Proportion of sex/gender") +
+  scale_fill_manual(name = " ", 
+                    values = c("2" = "#00BFC4", "1" ="#F8766D" ),
+                    labels = c("male", "female")) + # 修改图例元素的命名
+  scale_y_continuous(expand=c(0,0))+  # 让 Y 轴与 0 对齐
+theme_bw() +
+  theme(panel.grid = element_blank(),
+        panel.border = element_blank(),
+        axis.line = element_line(size = 0.2),
+        axis.ticks = element_line(size = 0.2),
+        axis.ticks.length = unit(0.2, "cm"), 
+        axis.text.x = element_text(angle = 60, hjust = 1),
+        axis.text = element_text(size = 17),
+        axis.title = element_text(size = 17),
+        axis.title.x = element_blank(),  # 去掉横坐标的标题
+        plot.title = element_text(size = 20),
+        legend.text = element_text(size = 12, family = "serif"),
+        legend.key.size = unit(1.5, "lines"))+
+coord_cartesian(clip = 'off',ylim = c(0,100),xlim = c(1,35))+ #在非图形区域绘图,且要定好y轴范围
+  theme(plot.margin = margin(0.5,0.5,1.5,0.5,'cm'))+ #自定义图片上左下右的边框宽度
+  annotate('text',x=-2.75,y=128,label='a',size=8,family='serif',color='black')
+
+sex_rep
+```
+
+```{r}
+age_representation <- read_csv("age_representation.csv")
+age_representation
+```
+
+
+```{r}
+age_rep <- ggplot(age_representation, aes(x = reorder(paper, -age_mean), y = age_mean)) +
+  geom_bar(fill = "grey", colour = "black", stat = "identity", width = 0.5) +    # 设置柱状图的填充颜色
+  geom_segment(aes(x = 0.5, y = 30, xend = 9.5, yend = 30), color = "red", size = 1, linetype = "dashed") +  
+  labs(y = "Average age") +          
+  ggtitle("Average age") +
+  scale_y_continuous(expand=c(0, 0))+  # 让 Y 轴与 0 对齐
+  theme_bw() +
+  theme(panel.grid = element_blank(),
+        panel.border = element_blank(),
+        axis.line = element_line(size = 0.2),
+        axis.ticks = element_line(size = 0.2),
+        axis.ticks.length = unit(0.3, "cm"), 
+        axis.text.x = element_text(angle = 60, hjust = 1),
+        axis.text = element_text(size = 17),
+        axis.title = element_text(size = 17),
+        axis.title.x = element_blank(),  # 去掉横坐标的标题
+        plot.title = element_text(size = 20) )+
+coord_cartesian(clip = 'off',ylim = c(0,70),xlim = c(1,9))+ #在非图形区域绘图,且要定好y轴范围
+  theme(plot.margin = margin(0.5,0.5,1.5,0.5,'cm'))+ #自定义图片上左下右的边框宽度
+  annotate('text',x=-1.1,y=83,label='b',size=8,family='serif',color='black')
+
+age_rep
+```
+
+```{r}
+country_representation <- read_csv("country_representation.csv", locale = locale(encoding = "GBK"))
+country_representation$paper <- factor(country_representation$paper, levels = country_representation$paper)
+country_representation
+```
+
+```{r}
+country_rep <-ggplot(country_representation, aes(x = paper)) +
+  geom_bar(aes(y = muti_country, fill = "1"), stat = "identity", position = "stack", width = 0.5) +
+   geom_bar(aes(y = middle_east, fill = "2"), stat = "identity", position = "stack", width = 0.5) + 
+  geom_bar(aes(y = latin_america, fill = "3"), stat = "identity", position = "stack", width = 0.5) +  
+  geom_bar(aes(y = africa, fill = "4"), stat = "identity", position = "stack", width = 0.5) +
+  geom_bar(aes(y = asia, fill = "5"), stat = "identity", position = "stack", width = 0.5) + 
+  geom_bar(aes(y = western, fill = "6"), stat = "identity", position = "stack", width = 0.5) +
+  
+  #geom_segment(aes(x = 0.5, y = 50, xend = 7.5, yend = 50), color = "black", size = 1, linetype = "dashed") +  
+  labs( y = "Proportion") +          
+  ggtitle("Proportion of participants by region") +
+  scale_fill_manual(name = " ", 
+                    values = c("6" = "#7f6fb2" ,"5" = "#e92c8b","4" = "#67a31e", "3" = "#d95f02","2" = "#e7ac03","1" = "#a5761d" ),
+                   labels = c("Multiple countries", "Middle East", "Latin American countries", "Africa", "Asia", "North America/Europe/Oceania/Israel")) + # 修改图例元素的命名
+  scale_y_continuous(expand=c(0,0))+  # 让 Y 轴与 0 对齐
+theme_bw() +
+  theme(panel.grid = element_blank(),
+        panel.border = element_blank(),
+        axis.line = element_line(size = 0.2),
+        axis.ticks = element_line(size = 0.2),
+        axis.ticks.length = unit(0.2, "cm"), 
+        axis.text.x = element_text(angle = 60, hjust = 1),
+        axis.text = element_text(size =17),
+        axis.title = element_text(size = 17),
+        axis.title.x = element_blank(),  # 去掉横坐标的标题
+        plot.title = element_text(size = 20),
+        legend.text = element_text(size = 12, family = "serif"),
+        legend.key.size = unit(1.5, "lines"))+
+coord_cartesian(clip = 'off',ylim = c(0,100),xlim = c(1,30))+ #在非图形区域绘图,且要定好y轴范围
+  theme(plot.margin = margin(0.5,0.5,1.5,0.5,'cm'))+ #自定义图片上左下右的边框宽度
+  annotate('text',x=-1.56,y=130,label='c',size=8,family='serif',color='black')
+country_rep
+```
+
+```{r}
+race_representation <- read_csv("race_representation.csv", locale = locale(encoding = "GBK"))
+race_representation$paper <- factor(race_representation$paper, levels = race_representation$paper)
+race_representation
+```
+
+
+```{r}
+race_rep <-ggplot(race_representation, aes(x = paper)) +
+  geom_bar(aes(y = other, fill = "1"), stat = "identity", position = "stack", width = 0.5) +
+   geom_bar(aes(y = multi, fill = "2"), stat = "identity", position = "stack", width = 0.5) + 
+  geom_bar(aes(y = latin, fill = "3"), stat = "identity", position = "stack", width = 0.5) +  
+  geom_bar(aes(y = black, fill = "4"), stat = "identity", position = "stack", width = 0.5) +
+  geom_bar(aes(y = asia, fill = "5"), stat = "identity", position = "stack", width = 0.5) + 
+  geom_bar(aes(y = white, fill = "6"), stat = "identity", position = "stack", width = 0.5) +
+  
+  #geom_segment(aes(x = 0.5, y = 50, xend = 7.5, yend = 50), color = "black", size = 1, linetype = "dashed") +  
+  labs( y = "Proportion") +          
+  ggtitle("Proportion of participants by race/ethnicity") +
+  scale_fill_manual(name = " ", 
+                    values = c("6" = "#7f6fb2" ,"5" = "#e92c8b","4" = "#67a31e", "3" = "#d95f02","2" = "#e7ac03","1" = "#a5761d" ),
+                   labels = c("Other race","Multiracial" ,"Hispanic/Latino", "Black/African", "Asian","White" )) + 
+  scale_y_continuous(expand=c(0,0))+  # 让 Y 轴与 0 对齐
+theme_bw() +
+  theme(panel.grid = element_blank(),
+        panel.border = element_blank(),
+        axis.line = element_line(size = 0.2),
+        axis.ticks = element_line(size = 0.2),
+        axis.ticks.length = unit(0.2, "cm"), 
+        axis.text.x = element_text(angle = 60, hjust = 1),
+        axis.text = element_text(size = 17),
+        axis.title = element_text(size = 17),
+        axis.title.x = element_blank(),  # 去掉横坐标的标题
+        plot.title = element_text(size = 20),
+        legend.text = element_text(size = 12, family = "serif"),
+        legend.key.size = unit(1.5, "lines"))+
+coord_cartesian(clip = 'off',ylim = c(0,100),xlim = c(1,9))+ #在非图形区域绘图,且要定好y轴范围
+  theme(plot.margin = margin(0.5,0.5,1.5,0.5,'cm'))+ #自定义图片上左下右的边框宽度
+  annotate('text',x=-1,y=130,label='e',size=8,family='serif',color='black')
+race_rep
+```
+
+```{r}
+education_representation <- read_csv("education_representation.csv", locale = locale(encoding = "GBK"))
+education_representation$paper <- factor(education_representation$paper, levels = education_representation$paper)
+education_representation
+```
+
+
+
+
+```{r}
+education_rep <-ggplot(education_representation, aes(x = paper)) +
+  geom_bar(aes(y = total, fill = "1"), stat = "identity", position = "stack", width = 0.5) +  
+  geom_bar(aes(y = un_university, fill = "2"), stat = "identity", position = "stack", width = 0.5) +    # 第二条折线
+   
+  labs( y = "Proportion") +          
+  ggtitle("Proportion of participants by education level") +
+  scale_fill_manual(name = " ", 
+                    values = c("2" = "#00BFC4", "1" ="#F8766D" ),
+                    labels = c("College-educated","No college-educated")) + # 修改图例元素的命名 
+  scale_y_continuous(expand=c(0,0))+  # 让 Y 轴与 0 对齐
+  theme_bw() +
+  theme(panel.grid = element_blank(),
+        panel.border = element_blank(),
+        axis.line = element_line(size = 0.2),
+        axis.ticks = element_line(size = 0.2),
+        axis.ticks.length = unit(0.1, "cm"), 
+        axis.text.x = element_text(angle = 60, hjust = 1),
+        axis.text = element_text(size = 17),
+        axis.title = element_text(size = 17),
+        axis.title.x = element_blank(),  # 去掉横坐标的标题
+        plot.title = element_text(size = 20),
+        legend.text = element_text(size = 12, family = "serif"),
+        legend.key.size = unit(1, "lines")
+        #,legend.position = "bottom"
+        )+
+coord_cartesian(clip = 'off',ylim = c(0,100),xlim = c(1,7))+ #在非图形区域绘图,且要定好y轴范围
+  theme(plot.margin = margin(0.5,0.5,1.5,0.5,'cm'))+ #自定义图片上左下右的边框宽度
+  annotate('text',x=-1.0,y=120,label='d',size=8,family='serif',color='black')
+education_rep
+```
+
+```{r}  
+sex_rep <- sex_rep +
+  theme(plot.margin = margin(1, 1, 1, 1, "cm"))
+
+age_rep <- age_rep +
+  theme(plot.margin = margin(1, 1, 1, 1, "cm"))
+
+country_rep <- country_rep +
+  theme(plot.margin = margin(1, 1, 1, 1, "cm"))
+
+education_rep <- education_rep +
+  theme(plot.margin = margin(1, 1, 1, 1, "cm"))
+
+race_rep <- race_rep +
+  theme(plot.margin = margin(1, 1, 1, 1, "cm"))
+
+combined_plot <-  plot_grid((plot_grid(sex_rep, age_rep, ncol = 2, rel_widths = c(2,1))),
+                            country_rep,
+                            (plot_grid(education_rep, race_rep, ncol = 2, rel_widths = c(1,1.2))),
+                            nrow = 3, rel_heights = c(1, 1, 1))
+
+combined_plot
+
+# Save the plot as a pdf image
+ggsave(filename = "representation_english.pdf", plot = combined_plot,  width = 16, height = 17)
+```
+
+
+```{r}  
+combined_plot <- (sex_rep|age_rep)/country_rep/(education_rep|race_rep) 
+
+combined_plot
+# Save the plot as a pdf image
+ggsave(filename = "representation.jpg", plot = combined_plot,  width = 15, height = 17)
+```
+
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
